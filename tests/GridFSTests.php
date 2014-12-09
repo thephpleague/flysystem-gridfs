@@ -1,7 +1,7 @@
 <?php
 
-use League\Flysystem\GridFS\Adapter;
 use League\Flysystem\Config;
+use League\Flysystem\GridFS\Adapter;
 
 class GridFSTests extends PHPUnit_Framework_TestCase
 {

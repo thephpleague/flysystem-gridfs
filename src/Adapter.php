@@ -22,14 +22,14 @@ class Adapter extends AbstractAdapter
     use StreamedReadingTrait;
 
     /**
-     * @var  MongoGridFs  $client  Mongo GridFS client
+     * @var MongoGridFs $client Mongo GridFS client
      */
     protected $client;
 
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param  MongoGridFs $client
+     * @param MongoGridFs $client
      */
     public function __construct(MongoGridFs $client)
     {
@@ -37,9 +37,9 @@ class Adapter extends AbstractAdapter
     }
 
     /**
-     * Get the MongoGridFs instance
+     * Get the MongoGridFs instance.
      *
-     * @return  MongoGridFs
+     * @return MongoGridFs
      */
     public function getClient()
     {
@@ -204,10 +204,11 @@ class Adapter extends AbstractAdapter
     }
 
     /**
-     * Write an object to GridFS
+     * Write an object to GridFS.
      *
-     * @param   array  $metadata
-     * @return  array   normalized file representation
+     * @param array $metadata
+     *
+     * @return array normalized file representation
      */
     protected function writeObject($path, $content, array $metadata)
     {
@@ -229,8 +230,9 @@ class Adapter extends AbstractAdapter
     /**
      * Normalize a MongoGridFs file to a response.
      *
-     * @param  MongoGridFSFile  $file
-     * @param  string           $path
+     * @param MongoGridFSFile $file
+     * @param string          $path
+     *
      * @return array
      */
     protected function normalizeGridFSFile(MongoGridFSFile $file, $path = null)

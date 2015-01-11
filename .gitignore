@@ -1,4 +1,5 @@
-vendor/
-coverage/
+vendor
+bin
+coverage
 coverage.xml
-bin/
+composer.lock

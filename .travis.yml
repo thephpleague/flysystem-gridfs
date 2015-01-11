@@ -11,4 +11,4 @@ before_script:
   - travis_retry composer install --no-interaction --prefer-source --dev
 
 script:
-  - php bin/phpunit --verbose --coverage-text --coverage-clover /tmp/flysystem/coverage.xml; fi;'
+  - php bin/phpunit

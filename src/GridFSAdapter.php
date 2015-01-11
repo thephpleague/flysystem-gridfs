@@ -15,7 +15,7 @@ use MongoGridFSException;
 use MongoGridFSFile;
 use MongoRegex;
 
-class Adapter extends AbstractAdapter
+class GridFSAdapter extends AbstractAdapter
 {
     use NotSupportingVisibilityTrait;
     use StreamedCopyTrait;

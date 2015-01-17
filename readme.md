@@ -10,6 +10,12 @@
 
 This is a Flysystem adapter for the MongoDB's GridFS.
 
+## Installation
+
+```bash
+composer require league/flysystem-gridfs
+```
+
 # Bootstrap
 
 ``` php

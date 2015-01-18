@@ -22,7 +22,7 @@ class GridFSAdapter extends AbstractAdapter
     use StreamedReadingTrait;
 
     /**
-     * @var MongoGridFs $client Mongo GridFS client
+     * @var MongoGridFs Mongo GridFS client
      */
     protected $client;
 

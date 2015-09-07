@@ -218,6 +218,9 @@ class GridFSAdapter extends AbstractAdapter
             } else {
                 $id = $this->client->storeBytes($content, $metadata);
             }
+
+            // Create index on files/filename
+            $this->ensureIndex();
         } catch (MongoGridFSException $e) {
             return false;
         }
@@ -251,5 +254,23 @@ class GridFSAdapter extends AbstractAdapter
         }
 
         return $result;
+    }
+
+    /**
+     * Creates index on filename field
+     */
+    protected function ensureIndex()
+    {
+        $indexes = $this->client->getIndexInfo();
+        foreach($indexes as $index) {
+            if ($index['name'] == 'filename_1') {
+                return;
+            }
+        }
+
+        // Looks like there is not index
+        if (method_exists($this->client, 'createIndex')) {
+            $this->client->createIndex(['filename' => \MongoCollection::ASCENDING]);
+        }
     }
 }

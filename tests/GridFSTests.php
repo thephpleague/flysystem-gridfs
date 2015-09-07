@@ -24,6 +24,9 @@ class GridFSTests extends PHPUnit_Framework_TestCase
         }
     }
 
+    /**
+     * @return \Mockery\MockInterface
+     */
     protected function getClient()
     {
         return Mockery::mock('MongoGridFs');
@@ -96,6 +99,7 @@ class GridFSTests extends PHPUnit_Framework_TestCase
         ]);
 
         $client->shouldReceive('storeBytes')->times(2)->andReturn('some_id');
+        $client->shouldReceive('getIndexInfo')->times(2)->andReturn([['name' => 'filename_1']]);
         $client->shouldReceive('findOne')->times(2)->andReturn($file);
 
         $expectedResult = [
@@ -118,6 +122,7 @@ class GridFSTests extends PHPUnit_Framework_TestCase
         $file = $this->getMongoFile();
 
         $client->shouldReceive('storeBytes')->once()->with('content', ['filename' => 'file.txt', 'metadata' => ['mimetype' => 'application/json']])->andReturn('some_id');
+        $client->shouldReceive('getIndexInfo')->andReturn([['name' => 'filename_1']]);
         $client->shouldReceive('findOne')->once()->andReturn($file);
 
         $expectedResult = [
@@ -152,6 +157,7 @@ class GridFSTests extends PHPUnit_Framework_TestCase
         $stream = fopen('php://memory', 'r');
 
         $client->shouldReceive('storeFile')->times(2)->andReturn('some_id');
+        $client->shouldReceive('getIndexInfo')->times(2)->andReturn([['name' => 'filename_1']]);
         $client->shouldReceive('findOne')->times(2)->andReturn($file);
 
         $expectedResult = [
@@ -328,6 +334,7 @@ class GridFSTests extends PHPUnit_Framework_TestCase
 
         // writeStream
         $client->shouldReceive('storeFile')->once()->andReturn('some_id');
+        $client->shouldReceive('getIndexInfo')->once()->andReturn([['name' => 'filename_1']]);
         $client->shouldReceive('findOne')->once()->andReturn($file);
 
         $this->assertTrue($adapter->copy('original.txt', 'copy.txt'));
@@ -344,6 +351,7 @@ class GridFSTests extends PHPUnit_Framework_TestCase
 
         // writeStream
         $client->shouldReceive('storeFile')->once()->andReturn('some_id');
+        $client->shouldReceive('getIndexInfo')->once()->andReturn([['name' => 'filename_1']]);
         $client->shouldReceive('findOne')->once()->andReturn($file);
 
         // delete
@@ -351,5 +359,32 @@ class GridFSTests extends PHPUnit_Framework_TestCase
         $client->shouldReceive('delete')->once()->andReturn(true);
 
         $this->assertTrue($adapter->rename('file.txt', 'new.txt'));
+    }
+
+    public function testCreateIndex()
+    {
+        $client = $this->getClient();
+        $adapter = new GridFSAdapter($client);
+        $file = $this->getMongoFile([
+            'metadata'      => [
+                'mimetype' => 'text/plain',
+            ],
+        ]);
+
+        $client->shouldReceive('storeBytes')->once()->andReturn('some_id');
+        $client->shouldReceive('getIndexInfo')->once()->andReturn([]);
+        $client->shouldReceive('createIndex')->withArgs([['filename' => \MongoCollection::ASCENDING]])->once();
+        $client->shouldReceive('findOne')->once()->andReturn($file);
+
+        $expectedResult = [
+            'path'      => 'file.txt',
+            'type'      => 'file',
+            'size'      => null,
+            'timestamp' => self::FILE_CREATED_AT,
+            'dirname'   => '',
+            'mimetype'  => 'text/plain',
+        ];
+
+        $this->assertSame($expectedResult, $adapter->write('file.txt', 'content', new Config()));
     }
 }

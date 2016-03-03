@@ -20,7 +20,6 @@ composer require league/flysystem-gridfs
 
 ``` php
 <?php
-use Aws\S3\S3Client;
 use League\Flysystem\GridFS\GridFSAdapter;
 use League\Flysystem\Filesystem;
 

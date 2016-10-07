@@ -8,5 +8,8 @@ php:
 install:
   - travis_retry composer install --no-interaction --prefer-source
 
+before_script:
+  - phpenv config-add php_ext.ini
+
 script:
   - php bin/phpunit

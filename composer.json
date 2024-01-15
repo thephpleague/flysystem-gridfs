@@ -1,0 +1,21 @@
+{
+    "name": "league/flysystem-mongodb-gridfs",
+    "autoload": {
+        "psr-4": {
+            "League\\Flysystem\\GridFS\\": ""
+        }
+    },
+    "require": {
+        "php": "^8.0.2",
+        "ext-mongodb": "^1.15",
+        "league/flysystem": "^3.10.0",
+        "mongodb/mongodb": "^1.2"
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jérôme Tamarelle",
+            "email": "jerome.tamarelle@mongodb.com"
+        }
+    ]
+}

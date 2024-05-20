@@ -251,16 +251,16 @@ class GridFSAdapter implements FilesystemAdapter
         }
 
         $file = $this->findFile($path);
-
         if ($file === null) {
             throw UnableToRetrieveMetadata::mimeType($path, 'file does not exist');
         }
 
-        if ( ! isset($file['metadata'][self::METADATA_MIMETYPE])) {
+        $attributes = $this->mapFileAttributes($file);
+        if ($attributes->mimeType() === null) {
             throw UnableToRetrieveMetadata::mimeType($path, 'unknown');
         }
 
-        return new FileAttributes($path, null, null, null, $file['metadata'][self::METADATA_MIMETYPE]);
+        return $attributes;
     }
 
     public function lastModified(string $path): FileAttributes

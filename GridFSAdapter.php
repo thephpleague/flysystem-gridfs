@@ -139,14 +139,12 @@ class GridFSAdapter implements FilesystemAdapter
             throw UnableToReadFile::fromLocation($path, 'file path cannot end with a slash');
         }
 
-        $file = $this->findFile($path);
-
-        if ($file === null) {
-            throw UnableToReadFile::fromLocation($path, 'file does not exist');
-        }
-
         try {
-            return $this->bucket->openDownloadStream($file['_id']);
+            $filename = $this->prefixer->prefixPath($path);
+
+            return $this->bucket->openDownloadStreamByName($filename);
+        } catch (FileNotFoundException $exception) {
+            throw UnableToReadFile::fromLocation($path, 'file does not exist', $exception);
         } catch (Exception $exception) {
             throw UnableToReadFile::fromLocation($path, $exception->getMessage(), $exception);
         }

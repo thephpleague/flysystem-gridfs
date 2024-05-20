@@ -25,11 +25,15 @@ use MongoDB\BSON\UTCDateTime;
 use MongoDB\Driver\Exception\Exception;
 use MongoDB\GridFS\Bucket;
 
+/**
+ * @phpstan-type GridFile array{_id:ObjectId, length:int, chunkSize:int, uploadDate:UTCDateTime, filename:string, metadata?:array{contentType?:string, flysystem_visibility?:string}}
+ */
 class GridFSAdapter implements FilesystemAdapter
 {
     private const METADATA_DIRECTORY = 'flysystem_directory';
     private const METADATA_VISIBILITY = 'flysystem_visibility';
     private const METADATA_MIMETYPE = 'contentType';
+    private const TYPEMAP_ARRAY = ['typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array']];
 
     private Bucket $bucket;
 
@@ -116,7 +120,12 @@ class GridFSAdapter implements FilesystemAdapter
 
     public function read(string $path): string
     {
-        return stream_get_contents($this->readStream($path));
+        $stream = $this->readStream($path);
+        try {
+            return stream_get_contents($stream);
+        } finally {
+            fclose($stream);
+        }
     }
 
     public function readStream(string $path)
@@ -208,7 +217,21 @@ class GridFSAdapter implements FilesystemAdapter
             throw UnableToRetrieveMetadata::mimeType($path, 'file does not exist');
         }
 
-        return new FileAttributes($path, null, $file['metadata'][self::METADATA_VISIBILITY] ?? null);
+        return $this->mapFileAttributes($file);
+    }
+
+    public function fileSize(string $path): FileAttributes
+    {
+        if (str_ends_with($path, '/')) {
+            throw UnableToRetrieveMetadata::fileSize($path, 'file path cannot end with a slash');
+        }
+
+        $file = $this->findFile($path);
+        if ($file === null) {
+            throw UnableToRetrieveMetadata::fileSize($path, 'file does not exist');
+        }
+
+        return $this->mapFileAttributes($file);
     }
 
     public function mimeType(string $path): FileAttributes
@@ -237,27 +260,11 @@ class GridFSAdapter implements FilesystemAdapter
         }
 
         $file = $this->findFile($path);
-
         if ($file === null) {
             throw UnableToRetrieveMetadata::lastModified($path, 'file does not exist');
         }
 
-        return new FileAttributes($path, null, null, $file['uploadDate']->toDateTime()->getTimestamp());
-    }
-
-    public function fileSize(string $path): FileAttributes
-    {
-        if (str_ends_with($path, '/')) {
-            throw UnableToRetrieveMetadata::fileSize($path, 'file path cannot end with a slash');
-        }
-
-        $file = $this->findFile($path);
-
-        if ($file === null) {
-            throw UnableToRetrieveMetadata::fileSize($path, 'file does not exist');
-        }
-
-        return new FileAttributes($path, $file['length']);
+        return $this->mapFileAttributes($file);
     }
 
     public function listContents(string $path, bool $deep): iterable
@@ -288,10 +295,7 @@ class GridFSAdapter implements FilesystemAdapter
                 'uploadDate' => ['$max' => '$uploadDate'],
             ]];
 
-            $files = $this->bucket->getFilesCollection()->aggregate(
-                $pipeline,
-                ['typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array']]
-            );
+            $files = $this->bucket->getFilesCollection()->aggregate($pipeline, self::TYPEMAP_ARRAY);
 
             foreach ($files as $file) {
                 if ($file['_id']['isDir']) {
@@ -301,15 +305,7 @@ class GridFSAdapter implements FilesystemAdapter
                         $file['uploadDate']->toDateTime()->getTimestamp(),
                     );
                 } else {
-                    $file = $file['file'];
-                    yield new FileAttributes(
-                        $this->prefixer->stripPrefix($file['filename']),
-                        $file['length'],
-                        $file['metadata'][self::METADATA_VISIBILITY] ?? null,
-                        $file['uploadDate']->toDateTime()->getTimestamp(),
-                        $file['metadata'][self::METADATA_MIMETYPE] ?? null,
-                        $file,
-                    );
+                    yield $this->mapFileAttributes($file['file']);
                 }
             }
         } else {
@@ -319,15 +315,12 @@ class GridFSAdapter implements FilesystemAdapter
                 'file' => ['$first' => '$$ROOT'],
             ]];
 
-            $files = $this->bucket->getFilesCollection()->aggregate(
-                $pipeline,
-                ['typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array']],
-            );
+            $files = $this->bucket->getFilesCollection()->aggregate($pipeline, self::TYPEMAP_ARRAY);
 
             foreach ($files as $file) {
                 $file = $file['file'];
                 if (str_ends_with($file['filename'], '/')) {
-                    // Empty files with a trailing slash are markers for directories, for Flysystem
+                    // Empty files with a trailing slash are markers for directories, only for Flysystem
                     yield new DirectoryAttributes(
                         $this->prefixer->stripDirectoryPrefix($file['filename']),
                         $file['metadata'][self::METADATA_VISIBILITY] ?? null,
@@ -335,14 +328,7 @@ class GridFSAdapter implements FilesystemAdapter
                         $file,
                     );
                 } else {
-                    yield new FileAttributes(
-                        $this->prefixer->stripPrefix($file['filename']),
-                        $file['length'],
-                        $file['metadata'][self::METADATA_VISIBILITY] ?? null,
-                        $file['uploadDate']->toDateTime()->getTimestamp(),
-                        $file['metadata'][self::METADATA_MIMETYPE] ?? null,
-                        $file,
-                    );
+                    yield $this->mapFileAttributes($file);
                 }
             }
         }
@@ -394,20 +380,33 @@ class GridFSAdapter implements FilesystemAdapter
     }
 
     /**
-     * @return array{_id:ObjectId, length:int, chunkSize:int, uploadDate:UTCDateTime, filename:string, metadata?:array{contentType?:string, flysystem_visibility?:string}}|null
+     * Get the last revision of the file name.
+     *
+     * @return GridFile|null
      */
     private function findFile(string $path): ?array
     {
         $filename = $this->prefixer->prefixPath($path);
         $files = $this->bucket->find(
             ['filename' => $filename],
-            [
-                'sort' => ['uploadDate' => -1],
-                'limit' => 1,
-                'typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array'],
-            ],
+            ['sort' => ['uploadDate' => -1], 'limit' => 1] + self::TYPEMAP_ARRAY,
         );
 
         return $files->toArray()[0] ?? null;
+    }
+
+    /**
+     * @param GridFile $file
+     */
+    private function mapFileAttributes(array $file): FileAttributes
+    {
+        return new FileAttributes(
+            $this->prefixer->stripPrefix($file['filename']),
+            $file['length'],
+            $file['metadata'][self::METADATA_VISIBILITY] ?? null,
+            $file['uploadDate']->toDateTime()->getTimestamp(),
+            $file['metadata'][self::METADATA_MIMETYPE] ?? null,
+            $file,
+        );
     }
 }

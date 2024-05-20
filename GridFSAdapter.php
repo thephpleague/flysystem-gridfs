@@ -282,14 +282,13 @@ class GridFSAdapter implements FilesystemAdapter
         $path = $this->prefixer->prefixDirectoryPath($path);
 
         $pathdeep = 0;
-        $pipeline = [];
+        // Get the last revision of each file, using the index on the files collection
+        $pipeline = [['$sort' => ['filename' => 1, 'uploadDate' => 1]]];
         if ($path !== '') {
             $pathdeep = substr_count($path, '/');
             // Exclude files that do not start with the expected path
             $pipeline[] = ['$match' => ['filename' => new Regex('^' . preg_quote($path))]];
         }
-        // Get the last revision of each file
-        $pipeline[] = ['$sort' => ['filename' => 1, 'uploadDate' => -1]];
 
         if ($deep === false) {
             $pipeline[] = ['$addFields' => ['splitpath' => ['$split' => ['$filename', '/']]]];
@@ -300,7 +299,7 @@ class GridFSAdapter implements FilesystemAdapter
                     'isDir' => ['$ne' => [['$size' => '$splitpath'], $pathdeep + 1]],
                 ],
                 // Get the metadata of the last revision of each file
-                'file' => ['$first' => '$$ROOT'],
+                'file' => ['$last' => '$$ROOT'],
                 // The "lastModified" date is the date of the last uploaded file in the directory
                 'uploadDate' => ['$max' => '$uploadDate'],
             ]];

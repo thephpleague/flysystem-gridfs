@@ -19,6 +19,8 @@ use function getenv;
 
 /**
  * @group gridfs
+ *
+ * @method GridFSAdapter adapter()
  */
 class GridFSAdapterTest extends TestCase
 {
@@ -32,6 +34,22 @@ class GridFSAdapterTest extends TestCase
         self::getDatabase()->drop();
 
         parent::tearDownAfterClass();
+    }
+
+    /**
+     * @test
+     */
+    public function fetching_contains_extra_metadata(): void
+    {
+        $adapter = $this->adapter();
+
+        $this->runScenario(function () use ($adapter) {
+            $this->givenWeHaveAnExistingFile('file.txt');
+            $fileAttributes = $adapter->lastModified('file.txt');
+            $extra = $fileAttributes->extraMetadata();
+            $this->assertArrayHasKey('_id', $extra);
+            $this->assertArrayHasKey('filename', $extra);
+        });
     }
 
     /**

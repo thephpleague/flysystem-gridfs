@@ -11,6 +11,7 @@ use League\Flysystem\FilesystemAdapter;
 use League\Flysystem\PathPrefixer;
 use League\Flysystem\UnableToCopyFile;
 use League\Flysystem\UnableToCreateDirectory;
+use League\Flysystem\UnableToDeleteDirectory;
 use League\Flysystem\UnableToDeleteFile;
 use League\Flysystem\UnableToMoveFile;
 use League\Flysystem\UnableToReadFile;
@@ -24,6 +25,7 @@ use MongoDB\BSON\Regex;
 use MongoDB\BSON\UTCDateTime;
 use MongoDB\Driver\Exception\Exception;
 use MongoDB\GridFS\Bucket;
+use MongoDB\GridFS\Exception\FileNotFoundException;
 
 /**
  * @phpstan-type GridFile array{_id:ObjectId, length:int, chunkSize:int, uploadDate:UTCDateTime, filename:string, metadata?:array{contentType?:string, flysystem_visibility?:string}}
@@ -33,7 +35,10 @@ class GridFSAdapter implements FilesystemAdapter
     private const METADATA_DIRECTORY = 'flysystem_directory';
     private const METADATA_VISIBILITY = 'flysystem_visibility';
     private const METADATA_MIMETYPE = 'contentType';
-    private const TYPEMAP_ARRAY = ['typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array']];
+    private const TYPEMAP_ARRAY = [
+        'typeMap' => ['root' => 'array', 'document' => 'array', 'array' => 'array'],
+        'codec' => null,
+    ];
 
     private Bucket $bucket;
 
@@ -147,26 +152,33 @@ class GridFSAdapter implements FilesystemAdapter
         }
     }
 
+    /**
+     * Delete all revisions of the file name, starting with the oldest,
+     * no-op if the file does not exist.
+     *
+     * @throws UnableToDeleteFile
+     */
     public function delete(string $path): void
     {
         if (str_ends_with($path, '/')) {
             throw UnableToDeleteFile::atLocation($path, 'file path cannot end with a slash');
         }
 
-        // Deleting a file that does not exist is no-op
-        while ($file = $this->findFile($path)) {
-            try {
-                $this->bucket->delete($file['_id']);
-            } catch (Exception $exception) {
-                throw UnableToDeleteFile::atLocation($path, $exception->getMessage(), $exception);
-            }
+        $filename = $this->prefixer->prefixPath($path);
+        try {
+            $this->findAndDelete(['filename' => $filename]);
+        } catch (Exception $exception) {
+            throw UnableToDeleteFile::atLocation($path, $exception->getMessage(), $exception);
         }
     }
 
     public function deleteDirectory(string $path): void
     {
-        foreach ($this->listContents($path, true) as $file) {
-            $this->bucket->delete($file->extraMetadata()['_id']);
+        $prefixedPath = $this->prefixer->prefixDirectoryPath($path);
+        try {
+            $this->findAndDelete(['filename' => new Regex('^' . preg_quote($prefixedPath))]);
+        } catch (Exception $exception) {
+            throw UnableToDeleteDirectory::atLocation($path, $exception->getMessage(), $exception);
         }
     }
 
@@ -276,7 +288,7 @@ class GridFSAdapter implements FilesystemAdapter
         if ($path !== '') {
             $pathdeep = substr_count($path, '/');
             // Exclude files that do not start with the expected path
-            $pipeline[] = ['$match' => ['filename' => ['$regex' => new Regex('^' . preg_quote($path))]]];
+            $pipeline[] = ['$match' => ['filename' => new Regex('^' . preg_quote($path))]];
         }
         // Get the last revision of each file
         $pipeline[] = ['$sort' => ['filename' => 1, 'uploadDate' => -1]];
@@ -408,5 +420,24 @@ class GridFSAdapter implements FilesystemAdapter
             $file['metadata'][self::METADATA_MIMETYPE] ?? null,
             $file,
         );
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function findAndDelete(array $filter): void
+    {
+        $files = $this->bucket->find(
+            $filter,
+            ['sort' => ['uploadDate' => 1], 'projection' => ['_id' => 1]] + self::TYPEMAP_ARRAY,
+        );
+
+        foreach ($files as $file) {
+            try {
+                $this->bucket->delete($file['_id']);
+            } catch (FileNotFoundException) {
+                // Ignore error due to race condition
+            }
+        }
     }
 }

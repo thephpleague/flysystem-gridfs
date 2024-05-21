@@ -1,5 +1,5 @@
 {
-    "name": "league/flysystem-mongodb-gridfs",
+    "name": "league/flysystem-gridfs",
     "autoload": {
         "psr-4": {
             "League\\Flysystem\\GridFS\\": ""
@@ -14,8 +14,12 @@
     "license": "MIT",
     "authors": [
         {
-            "name": "Jérôme Tamarelle",
-            "email": "jerome.tamarelle@mongodb.com"
+            "name": "Frank de Jonge",
+            "email": "info@frankdejonge.nl"
+        },
+        {
+            "name": "MongoDB PHP",
+            "email": "driver-php@mongodb.com"
         }
     ]
 }

@@ -15,6 +15,7 @@ use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToWriteFile;
 use MongoDB\Client;
 use MongoDB\Database;
+use MongoDB\Driver\ReadPreference;
 use function getenv;
 
 /**
@@ -146,7 +147,7 @@ class GridFSAdapterTest extends TestCase
         $this->runScenario(
             function () {
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 1');
-                usleep(10);
+                usleep(1000);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 2');
 
                 $this->assertSame('version 2', $this->adapter()->read('file.txt'));
@@ -165,7 +166,7 @@ class GridFSAdapterTest extends TestCase
         $this->runScenario(
             function () use ($deep) {
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 1');
-                usleep(10);
+                usleep(1000);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 2');
 
                 $files = $this->adapter()->listContents('', $deep);
@@ -209,7 +210,9 @@ class GridFSAdapterTest extends TestCase
         $this->runScenario(
             function () {
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 1');
+                usleep(1000);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 2');
+                usleep(1000);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 3');
 
                 $this->adapter()->delete('file.txt');
@@ -227,16 +230,15 @@ class GridFSAdapterTest extends TestCase
         $this->runScenario(
             function () {
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 1');
-                usleep(10);
+                usleep(1000);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 2');
-                usleep(10);
+                usleep(1000);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 3');
 
                 $this->adapter()->move('file.txt', 'destination.txt', new Config());
 
                 $this->assertFalse($this->adapter()->fileExists('file.txt'));
                 $this->assertSame($this->adapter()->read('destination.txt'), 'version 3');
-
             }
         );
     }
@@ -260,7 +262,9 @@ class GridFSAdapterTest extends TestCase
     {
         $uri = getenv('MONGODB_URI') ?: 'mongodb://127.0.0.1:27017/';
 
-        $client = new Client($uri);
+        $client = new Client($uri, [], [
+            'readPreference' => new ReadPreference(ReadPreference::PRIMARY),
+        ]);
 
         return $client->selectDatabase(getenv('MONGODB_DATABASE') ?: 'flysystem_tests');
     }

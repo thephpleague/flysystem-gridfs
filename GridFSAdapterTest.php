@@ -146,6 +146,7 @@ class GridFSAdapterTest extends TestCase
         $this->runScenario(
             function () {
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 1');
+                usleep(10);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 2');
 
                 $this->assertSame('version 2', $this->adapter()->read('file.txt'));
@@ -164,6 +165,7 @@ class GridFSAdapterTest extends TestCase
         $this->runScenario(
             function () use ($deep) {
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 1');
+                usleep(10);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 2');
 
                 $files = $this->adapter()->listContents('', $deep);
@@ -225,13 +227,15 @@ class GridFSAdapterTest extends TestCase
         $this->runScenario(
             function () {
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 1');
+                usleep(10);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 2');
+                usleep(10);
                 $this->givenWeHaveAnExistingFile('file.txt', 'version 3');
 
                 $this->adapter()->move('file.txt', 'destination.txt', new Config());
 
-                $this->assertSame($this->adapter()->read('destination.txt'), 'version 3');
                 $this->assertFalse($this->adapter()->fileExists('file.txt'));
+                $this->assertSame($this->adapter()->read('destination.txt'), 'version 3');
 
             }
         );

@@ -345,17 +345,15 @@ class GridFSAdapter implements FilesystemAdapter
 
     public function move(string $source, string $destination, Config $config): void
     {
-        $file = $this->findFile($source);
-
-        if ($file === null) {
-            throw UnableToMoveFile::because('file does not exist', $source, $destination);
-        }
-
         try {
-            $this->bucket->getFilesCollection()->updateMany(
-                ['filename' => $file['filename']],
+            $result = $this->bucket->getFilesCollection()->updateMany(
+                ['filename' => $this->prefixer->prefixPath($source)],
                 ['$set' => ['filename' => $this->prefixer->prefixPath($destination)]],
             );
+
+            if ($result->getModifiedCount() === 0) {
+                throw UnableToMoveFile::because('file does not exist', $source, $destination);
+            }
         } catch (Exception $exception) {
             throw UnableToMoveFile::fromLocationTo($source, $destination, $exception);
         }

@@ -261,10 +261,7 @@ class GridFSAdapterTest extends TestCase
     private static function getDatabase(): Database
     {
         $uri = getenv('MONGODB_URI') ?: 'mongodb://127.0.0.1:27017/';
-
-        $client = new Client($uri, [], [
-            'readPreference' => new ReadPreference(ReadPreference::PRIMARY),
-        ]);
+        $client = new Client($uri);
 
         return $client->selectDatabase(getenv('MONGODB_DATABASE') ?: 'flysystem_tests');
     }

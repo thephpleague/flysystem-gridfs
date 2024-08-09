@@ -349,6 +349,10 @@ class GridFSAdapter implements FilesystemAdapter
             return;
         }
 
+        if ($this->fileExists($destination)) {
+            $this->delete($destination);
+        }
+
         try {
             $result = $this->bucket->getFilesCollection()->updateMany(
                 ['filename' => $this->prefixer->prefixPath($source)],

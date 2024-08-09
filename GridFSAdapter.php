@@ -345,6 +345,10 @@ class GridFSAdapter implements FilesystemAdapter
 
     public function move(string $source, string $destination, Config $config): void
     {
+        if ($source === $destination) {
+            return;
+        }
+
         try {
             $result = $this->bucket->getFilesCollection()->updateMany(
                 ['filename' => $this->prefixer->prefixPath($source)],
